@@ -1,0 +1,14 @@
+{
+  "name": "omada-firewall-updater",
+  "version": "1.0.0",
+  "description": "monitors the current ip address of the device, and updates an omada rule to allow traffic to that ip address",
+  "main": "main.mjs",
+  "scripts": {
+    "start": "node ."
+  },
+  "author": "Nathan Orick",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.5.0"
+  }
+}

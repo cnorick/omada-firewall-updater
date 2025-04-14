@@ -1,0 +1,13 @@
+[Unit]
+Description=Omada Firewall Updater
+After=network.target
+After=network-online.target
+
+[Service]
+WorkingDirectory=/opt/omada-firewall-updater
+ExecStart=/root/.nvm/nvm-exec npm start
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
