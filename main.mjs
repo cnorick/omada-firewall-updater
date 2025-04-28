@@ -13,15 +13,34 @@ const dataRefreshInterval = 30_000;
 // See https://use1-omada-northbound.tplinkcloud.com/doc.html#/00%20All/Client/getGridActiveClients
 const omada = new OmadaClient({ client_id, client_secret, omadacId, baseUrl });
 
-
 async function main() {
+  try {
+    await checkIpV6AndUpdate();
+  } catch (error) {
+    console.error("Error:", error);
+  }
+  finally {
+    console.log("------\n");
+    setTimeout(main, dataRefreshInterval);
+  }
+}
+
+
+async function checkIpV6AndUpdate() {
   const groupList = await omada.getGroupProfileList(siteId);
   const selectedGroup = groupList.find((group) => group.groupId === groupId);
   if (!selectedGroup) {
     throw new Error(`Group with ID ${groupId} not found`);
   }
 
-  const publicIpv6 = await getPublicIPv6();
+  let publicIpv6;
+  try {
+    publicIpv6 = await getPublicIPv6();
+  }
+  catch (error) {
+    console.error("Error fetching public IPv6 address. Giving up.");
+    return;
+  }
   const savedIPv6 = selectedGroup.ipv6List[0].ip;
   console.log("Saved IPv6:", savedIPv6);
   console.log("Public IPv6:", publicIpv6);
@@ -45,8 +64,6 @@ async function main() {
   } else {
     console.log("IPv6 has not changed, no update needed.");
   }
-  console.log("------\n");
-  setTimeout(main, dataRefreshInterval);
 }
 
 async function getPublicIPv6() {
@@ -65,7 +82,7 @@ async function getPublicIPv6() {
         return await response.text();
       }
     } catch (error) {
-      console.error(`Error fetching from ${service}:`, error);
+      console.error(`Error fetching from ${service}`);
     }
   }
 
