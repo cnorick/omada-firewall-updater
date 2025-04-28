@@ -13,6 +13,8 @@ const dataRefreshInterval = 30_000;
 // See https://use1-omada-northbound.tplinkcloud.com/doc.html#/00%20All/Client/getGridActiveClients
 const omada = new OmadaClient({ client_id, client_secret, omadacId, baseUrl });
 
+let ipv6State = "disconnected";
+
 async function main() {
   try {
     await checkIpV6AndUpdate();
@@ -25,6 +27,49 @@ async function main() {
   }
 }
 
+async function updateWebhook(state) {
+  if (state === ipv6State) {
+    return;
+  }
+  ipv6State = state;
+
+  const webhookUrl = process.env.IPV6_CONNECTION_STATE_WEBHOOK;
+  if (!webhookUrl) {
+    console.log("No webhook URL provided, skipping update.");
+    return;
+  }
+
+  try {
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ state }),
+    });
+    if (!response.ok) {
+      throw new Error(`Webhook update failed: ${response.statusText}`);
+    }
+    console.log("Webhook updated successfully:", state);
+  } catch (error) {
+    console.error("Error updating webhook:", error);
+  }
+}
+
+async function updateOmada(ipv6) {
+  const resp = await omada.patchGroupProfile(
+    siteId,
+    selectedGroup.type,
+    groupId,
+    {
+      ...selectedGroup,
+      ipv6List: [{ ...selectedGroup.ipv6List[0], ip: ipv6 }],
+    }
+  );
+  if (resp.errorCode) {
+    console.log("Failed to update IPv6:", resp);
+    throw new Error("Failed to update IPv6 address");
+  }
+  console.log("Updated IPv6:", ipv6);
+}
 
 async function checkIpV6AndUpdate() {
   const groupList = await omada.getGroupProfileList(siteId);
@@ -38,29 +83,20 @@ async function checkIpV6AndUpdate() {
     publicIpv6 = await getPublicIPv6();
   }
   catch (error) {
-    console.error("Error fetching public IPv6 address. Giving up.");
+    console.error("Error fetching public IPv6 address.");
+    updateWebhook('disconnected');
+    console.log(`Will retry in ${dataRefreshInterval / 1000} seconds.`);
     return;
   }
+  updateWebhook('connected');
+
   const savedIPv6 = selectedGroup.ipv6List[0].ip;
   console.log("Saved IPv6:", savedIPv6);
   console.log("Public IPv6:", publicIpv6);
 
   if (savedIPv6 !== publicIpv6) {
     console.log("IPv6 has changed, updating...");
-    const resp = await omada.patchGroupProfile(
-      siteId,
-      selectedGroup.type,
-      groupId,
-      {
-        ...selectedGroup,
-        ipv6List: [{ ...selectedGroup.ipv6List[0], ip: publicIpv6 }],
-      }
-    );
-    if (resp.errorCode) {
-      console.log("Failed to update IPv6:", resp);
-      throw new Error("Failed to update IPv6 address");
-    }
-    console.log("Updated IPv6:", publicIpv6);
+    updateOmada(publicIpv6);
   } else {
     console.log("IPv6 has not changed, no update needed.");
   }
