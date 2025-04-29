@@ -54,7 +54,7 @@ async function updateWebhook(state) {
   }
 }
 
-async function updateOmada(ipv6) {
+async function updateOmada(ipv6, selectedGroup, groupId) {
   const resp = await omada.patchGroupProfile(
     siteId,
     selectedGroup.type,
@@ -96,7 +96,7 @@ async function checkIpV6AndUpdate() {
 
   if (savedIPv6 !== publicIpv6) {
     console.log("IPv6 has changed, updating...");
-    updateOmada(publicIpv6);
+    updateOmada(publicIpv6, selectedGroup, groupId);
   } else {
     console.log("IPv6 has not changed, no update needed.");
   }
