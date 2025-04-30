@@ -9,11 +9,13 @@ const siteId = process.env.OMADA_SITE_ID;
 const groupId = process.env.OMADA_GROUP_ID;
 
 const dataRefreshInterval = 30_000;
+const failureNotificationThreshold = 3;
 
 // See https://use1-omada-northbound.tplinkcloud.com/doc.html#/00%20All/Client/getGridActiveClients
 const omada = new OmadaClient({ client_id, client_secret, omadacId, baseUrl });
 
 let ipv6State = "disconnected";
+let numberOfSubsequentFailures = 0;
 
 async function main() {
   try {
@@ -28,9 +30,23 @@ async function main() {
 }
 
 async function updateWebhook(state) {
+  if (state === "connected") {
+    numberOfSubsequentFailures = 0;
+  }
   if (state === ipv6State) {
     return;
   }
+  if (state === "disconnected") {
+    numberOfSubsequentFailures++;
+    if (numberOfSubsequentFailures >= failureNotificationThreshold) {
+      console.log("Too many failures, updating webhook.");
+      numberOfSubsequentFailures = 0;
+    } else {
+      console.log("Not enough failures to update webhook.");
+      return;
+    }
+  }
+
   ipv6State = state;
 
   const webhookUrl = process.env.IPV6_CONNECTION_STATE_WEBHOOK;
